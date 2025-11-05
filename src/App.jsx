@@ -120,12 +120,6 @@ function App() {
         {/* HEADER - ЖОҒАРЫ ОРТАДА */}
         <div className="header-fullscreen">
           <h1>🌿 Green Player</h1>
-          <button 
-            onClick={loadDemoAudio}
-            className="demo-btn"
-          >
-            🎵 Демо әнді жүктеу
-          </button>
         </div>
 
         {/* TURNTABLE - ОРТАДА */}
