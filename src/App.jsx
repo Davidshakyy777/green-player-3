@@ -28,54 +28,63 @@ function App() {
         })
         .catch(error => {
           console.log('Play error:', error)
-          alert('Ән ойнату сәтсіз аяқталды')
+          alert('Ән ойнату сәтсіз аяқталды: ' + error.message)
         })
     }
   }
 
   const handleFileUpload = (event) => {
     const file = event.target.files[0]
-    if (file) {
-      // iPhone үшін жаксартылган файл түрін тексеру
-      const fileExtension = file.name.toLowerCase().split('.').pop();
-      const allowedExtensions = ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'mp4'];
-      
-      if (!allowedExtensions.includes(fileExtension)) {
-        alert('Тек аудио файлдарын жүктеңіз! (MP3, WAV, OGG, M4A, AAC)');
-        return;
-      }
+    if (!file) return
 
-      console.log('File selected:', file.name);
-
-      const audioUrl = URL.createObjectURL(file)
-      audioRef.current.src = audioUrl
-      
-      setIsPlaying(false)
-      setCurrentTime(0)
-      setHasAudio(true)
-      
-      const fileName = file.name.replace(/\.[^/.]+$/, "")
-      setTrackName(fileName)
-      
-      audioRef.current.onloadedmetadata = () => {
-        setDuration(audioRef.current.duration)
-        // iPhone үшін: файл жүктелгеннен кейін автоматты ойнату
-        setTimeout(() => {
-          audioRef.current.play()
-            .then(() => {
-              setIsPlaying(true)
-            })
-            .catch(error => {
-              console.log('Auto-play failed, manual play required:', error)
-            })
-        }, 500)
-      }
-
-      audioRef.current.onerror = () => {
-        alert('Аудио файлын жүктеу сәтсіз аяқталды')
-        setHasAudio(false)
-      }
+    // Файл түрін тексеру
+    const fileExtension = file.name.toLowerCase().split('.').pop()
+    const allowedExtensions = ['mp3', 'wav', 'ogg', 'm4a', 'aac']
+    
+    if (!allowedExtensions.includes(fileExtension)) {
+      alert('Тек аудио файлдарын жүктеңіз! (MP3, WAV, OGG, M4A, AAC)')
+      return
     }
+
+    // Алдыңғы аудио URL-ді тазарту
+    if (audioRef.current.src) {
+      URL.revokeObjectURL(audioRef.current.src)
+    }
+
+    const audioUrl = URL.createObjectURL(file)
+    
+    // Аудио элементін дайындау
+    audioRef.current.src = audioUrl
+    audioRef.current.volume = volume
+    audioRef.current.load() // iPhone үшін маңызды
+
+    const fileName = file.name.replace(/\.[^/.]+$/, "")
+    setTrackName(fileName)
+    setHasAudio(true)
+    setIsPlaying(false)
+    setCurrentTime(0)
+
+    // Аудио дайын болғанда
+    audioRef.current.onloadedmetadata = () => {
+      console.log('Audio loaded, duration:', audioRef.current.duration)
+      setDuration(audioRef.current.duration)
+      
+      // iPhone үшін: қолмен басу керек
+      console.log('Audio ready for playback')
+    }
+
+    audioRef.current.oncanplaythrough = () => {
+      console.log('Audio can play through')
+    }
+
+    audioRef.current.onerror = (e) => {
+      console.error('Audio error:', e)
+      alert('Аудио файлын жүктеу сәтсіз аяқталды')
+      setHasAudio(false)
+    }
+
+    // Input-ты тазарту (бірнеше файл жүктеу үшін)
+    event.target.value = ''
   }
 
   const formatTime = (seconds) => {
@@ -101,28 +110,14 @@ function App() {
     }
   }
 
-  const loadDemoAudio = () => {
-    const demoAudioUrl = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'
-    audioRef.current.src = demoAudioUrl
-    setHasAudio(true)
-    setTrackName('Демо ән - SoundHelix')
-    
-    audioRef.current.onloadedmetadata = () => {
-      setDuration(audioRef.current.duration)
-    }
-  }
-
   return (
     <div className={`app ${theme}-theme`}>
-      {/* PLAYER - БҮКІЛ ЭКРАН, БІРАҚ ЭЛЕМЕНТТЕР ОРНАЛАСҚАН */}
       <div className="player-fullscreen">
         
-        {/* HEADER - ЖОҒАРЫ ОРТАДА */}
         <div className="header-fullscreen">
           <h1>🌿 Green Player</h1>
         </div>
 
-        {/* TURNTABLE - ОРТАДА */}
         <div className="turntable-container">
           <div className="turntable-fullscreen">
             <div className={`vinyl-fullscreen ${isPlaying ? 'spin' : ''}`}>
@@ -142,12 +137,10 @@ function App() {
           </div>
         </div>
 
-        {/* TRACK INFO - TURNTABLE АСТЫНДА */}
         <div className="track-info-fullscreen">
-          <h3>{hasAudio ? (trackName || 'Forest Sounds') : 'Ән жүктелмеген'}</h3>
-          <p>{hasAudio ? 'Nature Meditation' : 'Файл жүктеңіз'}</p>
+          <h3>{hasAudio ? (trackName || 'Жүктелген ән') : 'Ән жүктелмеген'}</h3>
+          <p>{hasAudio ? 'Аудио файлы' : 'Файл жүктеңіз'}</p>
           
-          {/* ДЫБЫС БАПТАУ */}
           <div className="volume-control">
             <span>🔊</span>
             <input 
@@ -175,10 +168,8 @@ function App() {
           </div>
         </div>
 
-        {/* CONTROLS - ТӨМЕНГІ БӨЛІКТЕ */}
         <div className="controls-fullscreen">
-          {/* 📁 БАТЫРМАСЫ - ФАЙЛ ЖҮКТЕУ ҮШІН */}
-          <button onClick={() => fileInputRef.current.click()}>📁</button>
+          <button onClick={() => fileInputRef.current?.click()}>📁</button>
           <button disabled={!hasAudio}>⏮️</button>
           <button 
             className="play-fullscreen" 
@@ -191,29 +182,28 @@ function App() {
           <button disabled={!hasAudio}>📜</button>
         </div>
 
-        {/* THEME BUTTONS - ОҢ ЖАҚ ЖОҒАРЫДА */}
         <div className="theme-buttons-fullscreen">
           <button onClick={() => setTheme('green')}>🌿 Green</button>
           <button onClick={() => setTheme('purple')}>💜 Purple</button>
           <button onClick={() => setTheme('neon')}>🌈 Neon</button>
         </div>
 
-        {/* FILE UPLOAD INPUT - БҮЛ ЖЕРДЕ, ЖАСЫРЫНҒАН */}
         <input
           type="file"
           ref={fileInputRef}
           onChange={handleFileUpload}
-          accept=".mp3,.wav,.ogg,.m4a,.aac,audio/*"
+          accept=".mp3,.wav,.ogg,.m4a,.aac"
           style={{ display: 'none' }}
         />
       </div>
 
-      {/* AUDIO ELEMENT */}
       <audio
         ref={audioRef}
         onTimeUpdate={(e) => setCurrentTime(e.target.currentTime)}
         onLoadedMetadata={(e) => setDuration(e.target.duration)}
         onEnded={() => setIsPlaying(false)}
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
       />
     </div>
   )
