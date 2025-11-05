@@ -9,7 +9,6 @@ function App() {
   const [hasAudio, setHasAudio] = useState(false)
   const [volume, setVolume] = useState(1)
   const [trackName, setTrackName] = useState('')
-  const [audioLoaded, setAudioLoaded] = useState(false) // iPhone үшін жаңа state
   const audioRef = useRef(null)
   const fileInputRef = useRef(null)
 
@@ -19,23 +18,13 @@ function App() {
     if (isPlaying) {
       audioRef.current.pause()
     } else {
-      // iPhone үшін: әуенді қайта жүктеп, ойнату
-      if (audioRef.current.src) {
-        audioRef.current.play()
-          .then(() => {
-            setIsPlaying(true)
-          })
-          .catch(error => {
-            console.log('iPhone play error:', error)
-            // iPhone үшін: қайта жүктеп, ойнату
-            audioRef.current.load()
-            setTimeout(() => {
-              audioRef.current.play()
-                .then(() => setIsPlaying(true))
-                .catch(e => console.log('Retry failed:', e))
-            }, 100)
-          })
-      }
+      audioRef.current.play()
+        .then(() => {
+          setIsPlaying(true)
+        })
+        .catch(error => {
+          console.log('Play error:', error)
+        })
     }
   }
 
@@ -49,55 +38,53 @@ function App() {
     
     if (!allowedExtensions.includes(fileExtension)) return
 
+    loadAudioFile(file, file.name.replace(/\.[^/.]+$/, ""))
+    event.target.value = ''
+  }
+
+  // Ортақ аудио жүктеу функциясы
+  const loadAudioFile = (file, fileName) => {
     // Алдыңғы URL-ді тазарту
     if (audioRef.current.src && audioRef.current.src.startsWith('blob:')) {
       URL.revokeObjectURL(audioRef.current.src)
     }
 
-    const audioUrl = URL.createObjectURL(file)
+    const audioUrl = file instanceof File ? URL.createObjectURL(file) : file
     
-    // Аудио элементін толық қайта баптау
     audioRef.current.src = audioUrl
     audioRef.current.volume = volume
-    
-    const fileName = file.name.replace(/\.[^/.]+$/, "")
+
     setTrackName(fileName)
     setHasAudio(true)
     setIsPlaying(false)
     setCurrentTime(0)
-    setAudioLoaded(false)
 
-    // iPhone үшін маңызды event-тер
-    audioRef.current.onloadstart = () => {
-      console.log('Audio load started')
-    }
-
-    audioRef.current.onloadeddata = () => {
-      console.log('Audio data loaded')
-      setAudioLoaded(true)
+    audioRef.current.onloadedmetadata = () => {
       setDuration(audioRef.current.duration)
+      // iPhone үшін: user interaction болғаннан кейін ғана ойнатуға болады
+      console.log('Audio loaded, duration:', audioRef.current.duration)
     }
 
-    audioRef.current.oncanplay = () => {
-      console.log('Audio can play')
-      setAudioLoaded(true)
-    }
-
-    audioRef.current.oncanplaythrough = () => {
-      console.log('Audio can play through')
-      setAudioLoaded(true)
-    }
-
-    audioRef.current.onerror = (e) => {
-      console.error('Audio error:', audioRef.current.error)
+    audioRef.current.onerror = () => {
       setHasAudio(false)
-      setAudioLoaded(false)
     }
 
-    // iPhone үшін: load() әдісі
     audioRef.current.load()
+  }
 
-    event.target.value = ''
+  // DEMO FILE қайта қосылды
+  const loadDemoAudio = () => {
+    const demoAudioUrl = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'
+    loadAudioFile(demoAudioUrl, 'Демо ән - SoundHelix')
+    
+    // iPhone үшін: demo басқанда бірден ойнату
+    setTimeout(() => {
+      if (audioRef.current) {
+        audioRef.current.play()
+          .then(() => setIsPlaying(true))
+          .catch(error => console.log('Demo auto-play failed:', error))
+      }
+    }, 1000)
   }
 
   const formatTime = (seconds) => {
@@ -123,38 +110,21 @@ function App() {
     }
   }
 
-  // iPhone үшін: файл жүктелгеннен кейін ойнату батырмасы
-  const handleiPhonePlay = () => {
-    if (!audioRef.current || !hasAudio || !audioLoaded) return
-    
-    audioRef.current.play()
-      .then(() => {
-        setIsPlaying(true)
-      })
-      .catch(error => {
-        console.log('iPhone direct play error:', error)
-        // Соңғы әдіс: currentTime өзгерту
-        audioRef.current.currentTime = 0
-        audioRef.current.play()
-          .then(() => setIsPlaying(true))
-          .catch(e => console.log('Final attempt failed:', e))
-      })
-  }
-
   return (
     <div className={`app ${theme}-theme`}>
       <div className="player-fullscreen">
         
         <div className="header-fullscreen">
           <h1>🌿 Green Player</h1>
+          <button 
+            onClick={loadDemoAudio}
+            className="demo-btn"
+          >
+            🎵 Демо әнді жүктеу
+          </button>
           <p style={{color: '#666', fontSize: '14px', marginTop: '5px'}}>
             {hasAudio ? `${trackName}` : ''}
           </p>
-          {hasAudio && !isPlaying && (
-            <p style={{color: '#888', fontSize: '12px', marginTop: '2px'}}>
-              {audioLoaded ? 'Дабыс дайын' : 'Жүктелуде...'}
-            </p>
-          )}
         </div>
 
         <div className="turntable-container">
@@ -210,25 +180,13 @@ function App() {
         <div className="controls-fullscreen">
           <button onClick={() => fileInputRef.current?.click()}>📁</button>
           <button disabled={!hasAudio}>⏮️</button>
-          
-          {/* iPhone үшін арнайы ойнату батырмасы */}
-          {hasAudio && audioLoaded && !isPlaying ? (
-            <button 
-              className="play-fullscreen" 
-              onClick={handleiPhonePlay}
-            >
-              ▶️
-            </button>
-          ) : (
-            <button 
-              className="play-fullscreen" 
-              onClick={togglePlay}
-              disabled={!hasAudio}
-            >
-              {isPlaying ? '⏸️' : '▶️'}
-            </button>
-          )}
-          
+          <button 
+            className="play-fullscreen" 
+            onClick={togglePlay}
+            disabled={!hasAudio}
+          >
+            {isPlaying ? '⏸️' : '▶️'}
+          </button>
           <button disabled={!hasAudio}>⏭️</button>
           <button disabled={!hasAudio}>📜</button>
         </div>
@@ -253,10 +211,7 @@ function App() {
         preload="auto"
         playsInline // iPhone үшін маңызды
         onTimeUpdate={(e) => setCurrentTime(e.target.currentTime)}
-        onLoadedMetadata={(e) => {
-          setDuration(e.target.duration)
-          setAudioLoaded(true)
-        }}
+        onLoadedMetadata={(e) => setDuration(e.target.duration)}
         onEnded={() => setIsPlaying(false)}
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
