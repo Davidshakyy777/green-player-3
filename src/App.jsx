@@ -7,8 +7,8 @@ function App() {
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [hasAudio, setHasAudio] = useState(false)
-  const [volume, setVolume] = useState(1) // Дыбыс үшін жаңа state
-  const [trackName, setTrackName] = useState('') // Ән аты үшін жаңа state
+  const [volume, setVolume] = useState(1)
+  const [trackName, setTrackName] = useState('')
   const audioRef = useRef(null)
   const fileInputRef = useRef(null)
 
@@ -36,12 +36,16 @@ function App() {
   const handleFileUpload = (event) => {
     const file = event.target.files[0]
     if (file) {
-      // Жақсартылған файл түрін тексеру
-      const allowedTypes = ['audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/mp3', 'audio/*']
-      if (!allowedTypes.some(type => file.type.includes(type.replace('audio/', '')))) {
-        alert('Тек аудио файлдарын жүктеңіз! (MP3, WAV, OGG)')
-        return
+      // iPhone үшін жаксартылган файл түрін тексеру
+      const fileExtension = file.name.toLowerCase().split('.').pop();
+      const allowedExtensions = ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'mp4'];
+      
+      if (!allowedExtensions.includes(fileExtension)) {
+        alert('Тек аудио файлдарын жүктеңіз! (MP3, WAV, OGG, M4A, AAC)');
+        return;
       }
+
+      console.log('File selected:', file.name);
 
       const audioUrl = URL.createObjectURL(file)
       audioRef.current.src = audioUrl
@@ -50,12 +54,21 @@ function App() {
       setCurrentTime(0)
       setHasAudio(true)
       
-      // Файл атын сақтау (кеңейтімсіз)
       const fileName = file.name.replace(/\.[^/.]+$/, "")
       setTrackName(fileName)
       
       audioRef.current.onloadedmetadata = () => {
         setDuration(audioRef.current.duration)
+        // iPhone үшін: файл жүктелгеннен кейін автоматты ойнату
+        setTimeout(() => {
+          audioRef.current.play()
+            .then(() => {
+              setIsPlaying(true)
+            })
+            .catch(error => {
+              console.log('Auto-play failed, manual play required:', error)
+            })
+        }, 500)
       }
 
       audioRef.current.onerror = () => {
@@ -80,7 +93,6 @@ function App() {
     }
   }
 
-  // Жаңа: Дыбыс баптау функциясы
   const handleVolumeChange = (e) => {
     const newVolume = parseFloat(e.target.value)
     setVolume(newVolume)
@@ -138,11 +150,10 @@ function App() {
 
         {/* TRACK INFO - TURNTABLE АСТЫНДА */}
         <div className="track-info-fullscreen">
-          {/* Өзгертілген: Ән атын көрсету */}
           <h3>{hasAudio ? (trackName || 'Forest Sounds') : 'Ән жүктелмеген'}</h3>
           <p>{hasAudio ? 'Nature Meditation' : 'Файл жүктеңіз'}</p>
           
-          {/* ЖАҢА: Дыбыс баптау */}
+          {/* ДЫБЫС БАПТАУ */}
           <div className="volume-control">
             <span>🔊</span>
             <input 
@@ -172,6 +183,7 @@ function App() {
 
         {/* CONTROLS - ТӨМЕНГІ БӨЛІКТЕ */}
         <div className="controls-fullscreen">
+          {/* 📁 БАТЫРМАСЫ - ФАЙЛ ЖҮКТЕУ ҮШІН */}
           <button onClick={() => fileInputRef.current.click()}>📁</button>
           <button disabled={!hasAudio}>⏮️</button>
           <button 
@@ -192,12 +204,12 @@ function App() {
           <button onClick={() => setTheme('neon')}>🌈 Neon</button>
         </div>
 
-        {/* FILE UPLOAD (hidden) */}
+        {/* FILE UPLOAD INPUT - БҮЛ ЖЕРДЕ, ЖАСЫРЫНҒАН */}
         <input
           type="file"
           ref={fileInputRef}
           onChange={handleFileUpload}
-          accept="audio/*"
+          accept=".mp3,.wav,.ogg,.m4a,.aac,audio/*"
           style={{ display: 'none' }}
         />
       </div>
