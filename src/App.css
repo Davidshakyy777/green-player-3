@@ -450,3 +450,40 @@ body {
   background: #39FF14;
   box-shadow: 0 0 10px #39FF14;
 }
+
+/* Дыбыс баптау стильдері */
+.volume-control {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 10px 0;
+  width: 100%;
+}
+
+.volume-control input[type="range"] {
+  width: 100px;
+  height: 6px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+}
+
+.volume-control span {
+  font-size: 16px;
+  color: #333;
+}
+
+/* THEME БОЙЫНША ДЫБЫС БАПТАУ ТҮСТЕРІ */
+.green-theme .volume-control input[type="range"] {
+  background: linear-gradient(to right, #90EE90, #7CFC00);
+}
+
+.purple-theme .volume-control input[type="range"] {
+  background: linear-gradient(to right, #8A2BE2, #9370DB);
+}
+
+.neon-theme .volume-control input[type="range"] {
+  background: linear-gradient(to right, #39FF14, #32CD32);
+}

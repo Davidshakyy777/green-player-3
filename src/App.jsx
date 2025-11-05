@@ -7,6 +7,8 @@ function App() {
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [hasAudio, setHasAudio] = useState(false)
+  const [volume, setVolume] = useState(1) // Дыбыс үшін жаңа state
+  const [trackName, setTrackName] = useState('') // Ән аты үшін жаңа state
   const audioRef = useRef(null)
   const fileInputRef = useRef(null)
 
@@ -34,8 +36,10 @@ function App() {
   const handleFileUpload = (event) => {
     const file = event.target.files[0]
     if (file) {
-      if (!file.type.startsWith('audio/')) {
-        alert('Тек аудио файлдарын жүктеңіз!')
+      // Жақсартылған файл түрін тексеру
+      const allowedTypes = ['audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/mp3', 'audio/*']
+      if (!allowedTypes.some(type => file.type.includes(type.replace('audio/', '')))) {
+        alert('Тек аудио файлдарын жүктеңіз! (MP3, WAV, OGG)')
         return
       }
 
@@ -45,6 +49,10 @@ function App() {
       setIsPlaying(false)
       setCurrentTime(0)
       setHasAudio(true)
+      
+      // Файл атын сақтау (кеңейтімсіз)
+      const fileName = file.name.replace(/\.[^/.]+$/, "")
+      setTrackName(fileName)
       
       audioRef.current.onloadedmetadata = () => {
         setDuration(audioRef.current.duration)
@@ -72,10 +80,20 @@ function App() {
     }
   }
 
+  // Жаңа: Дыбыс баптау функциясы
+  const handleVolumeChange = (e) => {
+    const newVolume = parseFloat(e.target.value)
+    setVolume(newVolume)
+    if (audioRef.current) {
+      audioRef.current.volume = newVolume
+    }
+  }
+
   const loadDemoAudio = () => {
     const demoAudioUrl = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'
     audioRef.current.src = demoAudioUrl
     setHasAudio(true)
+    setTrackName('Демо ән - SoundHelix')
     
     audioRef.current.onloadedmetadata = () => {
       setDuration(audioRef.current.duration)
@@ -120,8 +138,24 @@ function App() {
 
         {/* TRACK INFO - TURNTABLE АСТЫНДА */}
         <div className="track-info-fullscreen">
-          <h3>{hasAudio ? 'Forest Sounds' : 'Ән жүктелмеген'}</h3>
+          {/* Өзгертілген: Ән атын көрсету */}
+          <h3>{hasAudio ? (trackName || 'Forest Sounds') : 'Ән жүктелмеген'}</h3>
           <p>{hasAudio ? 'Nature Meditation' : 'Файл жүктеңіз'}</p>
+          
+          {/* ЖАҢА: Дыбыс баптау */}
+          <div className="volume-control">
+            <span>🔊</span>
+            <input 
+              type="range" 
+              min="0" 
+              max="1" 
+              step="0.1"
+              value={volume}
+              onChange={handleVolumeChange}
+              disabled={!hasAudio}
+            />
+          </div>
+
           <div className="progress-fullscreen">
             <span>{formatTime(currentTime)}</span>
             <input 
