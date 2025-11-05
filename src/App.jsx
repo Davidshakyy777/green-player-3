@@ -18,45 +18,61 @@ function App() {
       return
     }
     
+    console.log('Toggle play, current state:', isPlaying)
+    console.log('Audio src:', audioRef.current.src)
+    console.log('Audio readyState:', audioRef.current.readyState)
+
     if (isPlaying) {
       audioRef.current.pause()
-      setIsPlaying(false)
     } else {
+      // Аудионы қайта жүктеу iPhone үшін
+      audioRef.current.load()
+      
       audioRef.current.play()
         .then(() => {
+          console.log('Play success')
           setIsPlaying(true)
         })
         .catch(error => {
           console.log('Play error:', error)
-          alert('Ән ойнату сәтсіз аяқталды: ' + error.message)
+          // iPhone үшін: user gesture керек
+          alert('Ән ойнату сәтсіз. Бір рет басып, қайта басып көріңіз.')
         })
     }
   }
 
   const handleFileUpload = (event) => {
-    const file = event.target.files[0]
-    if (!file) return
+    const files = event.target.files
+    if (!files || files.length === 0) return
+
+    // Бірінші файлды алу
+    const file = files[0]
 
     // Файл түрін тексеру
     const fileExtension = file.name.toLowerCase().split('.').pop()
-    const allowedExtensions = ['mp3', 'wav', 'ogg', 'm4a', 'aac']
+    const allowedExtensions = ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'mp4']
     
     if (!allowedExtensions.includes(fileExtension)) {
       alert('Тек аудио файлдарын жүктеңіз! (MP3, WAV, OGG, M4A, AAC)')
       return
     }
 
+    console.log('File selected:', file.name, 'Size:', file.size)
+
     // Алдыңғы аудио URL-ді тазарту
-    if (audioRef.current.src) {
+    if (audioRef.current.src && audioRef.current.src.startsWith('blob:')) {
       URL.revokeObjectURL(audioRef.current.src)
     }
 
     const audioUrl = URL.createObjectURL(file)
-    
+    console.log('Audio URL created:', audioUrl)
+
     // Аудио элементін дайындау
     audioRef.current.src = audioUrl
     audioRef.current.volume = volume
-    audioRef.current.load() // iPhone үшін маңызды
+    
+    // iPhone үшін маңызды: load() әдісі
+    audioRef.current.load()
 
     const fileName = file.name.replace(/\.[^/.]+$/, "")
     setTrackName(fileName)
@@ -65,25 +81,26 @@ function App() {
     setCurrentTime(0)
 
     // Аудио дайын болғанда
-    audioRef.current.onloadedmetadata = () => {
-      console.log('Audio loaded, duration:', audioRef.current.duration)
+    audioRef.current.onloadeddata = () => {
+      console.log('Audio loaded data, duration:', audioRef.current.duration)
       setDuration(audioRef.current.duration)
-      
-      // iPhone үшін: қолмен басу керек
-      console.log('Audio ready for playback')
+    }
+
+    audioRef.current.oncanplay = () => {
+      console.log('Audio can play now')
     }
 
     audioRef.current.oncanplaythrough = () => {
-      console.log('Audio can play through')
+      console.log('Audio can play through without stopping')
     }
 
     audioRef.current.onerror = (e) => {
-      console.error('Audio error:', e)
-      alert('Аудио файлын жүктеу сәтсіз аяқталды')
+      console.error('Audio error:', audioRef.current.error)
+      alert('Аудио файлын жүктеу сәтсіз аяқталды: ' + audioRef.current.error?.message)
       setHasAudio(false)
     }
 
-    // Input-ты тазарту (бірнеше файл жүктеу үшін)
+    // Бірнеше файл жүктеу үшін input-ты тазарту
     event.target.value = ''
   }
 
@@ -110,12 +127,35 @@ function App() {
     }
   }
 
+  // iPhone үшін: бірінші рет басқанда ойнату
+  const handleFirstPlay = () => {
+    if (!hasAudio) {
+      alert('Алдымен ән жүктеңіз!')
+      return
+    }
+    
+    // Аудионы қайта жүктеу
+    audioRef.current.load()
+    
+    audioRef.current.play()
+      .then(() => {
+        setIsPlaying(true)
+      })
+      .catch(error => {
+        console.log('First play error:', error)
+        alert('Бірінші рет ойнату сәтсіз. Қайта басып көріңіз.')
+      })
+  }
+
   return (
     <div className={`app ${theme}-theme`}>
       <div className="player-fullscreen">
         
         <div className="header-fullscreen">
           <h1>🌿 Green Player</h1>
+          <p style={{color: '#666', fontSize: '14px', marginTop: '5px'}}>
+            {hasAudio ? `Жүктелген: ${trackName}` : 'Файл жүктеңіз'}
+          </p>
         </div>
 
         <div className="turntable-container">
@@ -138,8 +178,8 @@ function App() {
         </div>
 
         <div className="track-info-fullscreen">
-          <h3>{hasAudio ? (trackName || 'Жүктелген ән') : 'Ән жүктелмеген'}</h3>
-          <p>{hasAudio ? 'Аудио файлы' : 'Файл жүктеңіз'}</p>
+          <h3>{hasAudio ? trackName : 'Ән жүктелмеген'}</h3>
+          <p>{hasAudio ? `${formatTime(currentTime)} / ${formatTime(duration)}` : 'Файл жүктеңіз'}</p>
           
           <div className="volume-control">
             <span>🔊</span>
@@ -169,6 +209,7 @@ function App() {
         </div>
 
         <div className="controls-fullscreen">
+          {/* БІРНЕШЕ ФАЙЛ ЖҮКТЕУ ҮШІН multiple АТРИБУТЫ */}
           <button onClick={() => fileInputRef.current?.click()}>📁</button>
           <button disabled={!hasAudio}>⏮️</button>
           <button 
@@ -188,22 +229,39 @@ function App() {
           <button onClick={() => setTheme('neon')}>🌈 Neon</button>
         </div>
 
+        {/* BIRNEŞE FAYL JÜKTEU ÜŞIN multiple QOSYLĞAN */}
         <input
           type="file"
           ref={fileInputRef}
           onChange={handleFileUpload}
-          accept=".mp3,.wav,.ogg,.m4a,.aac"
+          accept=".mp3,.wav,.ogg,.m4a,.aac,audio/*"
+          multiple={false} // Бір уақытта бір файл ғана
           style={{ display: 'none' }}
         />
       </div>
 
       <audio
         ref={audioRef}
-        onTimeUpdate={(e) => setCurrentTime(e.target.currentTime)}
-        onLoadedMetadata={(e) => setDuration(e.target.duration)}
-        onEnded={() => setIsPlaying(false)}
-        onPlay={() => setIsPlaying(true)}
-        onPause={() => setIsPlaying(false)}
+        preload="auto"
+        onTimeUpdate={(e) => {
+          setCurrentTime(e.target.currentTime)
+        }}
+        onLoadedMetadata={(e) => {
+          console.log('Metadata loaded, duration:', e.target.duration)
+          setDuration(e.target.duration)
+        }}
+        onEnded={() => {
+          console.log('Audio ended')
+          setIsPlaying(false)
+        }}
+        onPlay={() => {
+          console.log('Audio play event')
+          setIsPlaying(true)
+        }}
+        onPause={() => {
+          console.log('Audio pause event')
+          setIsPlaying(false)
+        }}
       />
     </div>
   )
